@@ -45,14 +45,14 @@ Cursor AI is incredible, but configuring rules for optimal AI assistance is time
 
 ```bash
 # Clone just the rules directory
-git clone https://github.com/YOUR_USERNAME/cursor-rules-starter-kit.git
+git clone https://github.com/jamesships/cursor-rules-starter-kit.git
 cp -r cursor-rules-starter-kit/.cursor/rules/* your-project/.cursor/rules/
 ```
 
 ### Option 3: Use as Git Submodule
 
 ```bash
-git submodule add https://github.com/YOUR_USERNAME/cursor-rules-starter-kit.git .cursor-kit
+git submodule add https://github.com/jamesships/cursor-rules-starter-kit.git .cursor-kit
 ln -s .cursor-kit/.cursor/rules .cursor/rules
 ```
 
