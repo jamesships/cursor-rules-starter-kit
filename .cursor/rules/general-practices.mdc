@@ -1,0 +1,204 @@
+---
+description: General best practices for all development projects
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# General Development Best Practices
+
+Universal rules that apply to all code across any project.
+
+## Code Quality
+
+### Naming Conventions
+- **Variables**: Use descriptive camelCase (JS/TS) or snake_case (Python)
+- **Functions**: Verb-based names that describe action (`getUserById`, `calculate_total`)
+- **Classes**: PascalCase nouns (`UserService`, `OrderRepository`)
+- **Constants**: SCREAMING_SNAKE_CASE (`MAX_RETRY_COUNT`, `API_BASE_URL`)
+- **Files**: kebab-case for URLs, snake_case for Python, camelCase for JS components
+
+### Function Design
+```
+Good function characteristics:
+- Does ONE thing well
+- Has a clear input/output contract
+- Returns early for edge cases
+- Fits on one screen (~30 lines max)
+- Has no more than 3-4 parameters
+```
+
+### Comments
+- Write self-documenting code first
+- Comment the "why", not the "what"
+- Use JSDoc/docstrings for public APIs
+- Delete commented-out code (use git history)
+
+## Git Conventions
+
+### Commit Messages
+Follow Conventional Commits format:
+
+```
+<type>(<scope>): <short summary>
+
+[optional body]
+
+[optional footer]
+```
+
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only
+- `style`: Formatting, no code change
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Performance improvement
+- `test`: Adding or correcting tests
+- `chore`: Maintenance tasks
+
+Example:
+```
+feat(auth): add OAuth2 Google login
+
+Implements Google OAuth2 flow with token refresh.
+Closes #123
+```
+
+### Branch Naming
+```
+feature/add-user-authentication
+fix/login-redirect-loop
+docs/api-reference-update
+refactor/extract-validation-logic
+```
+
+## Error Handling
+
+### Error Response Pattern
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Human readable message",
+    "details": [
+      {"field": "email", "issue": "Invalid format"}
+    ]
+  }
+}
+```
+
+### Error Handling Rules
+1. Catch specific exceptions, not generic `Exception`
+2. Log errors with context (user ID, request ID, etc.)
+3. Return user-friendly messages, log technical details
+4. Never expose stack traces in production
+
+## Documentation
+
+### README Structure
+```markdown
+# Project Name
+
+Brief description of what this project does.
+
+## Quick Start
+Minimal steps to get running.
+
+## Installation
+Detailed setup instructions.
+
+## Usage
+Examples and API reference.
+
+## Configuration
+Environment variables and options.
+
+## Contributing
+How to contribute.
+
+## License
+License information.
+```
+
+### Code Documentation
+- Every public module/class/function needs a docstring
+- Include parameter descriptions and return types
+- Add usage examples for complex functions
+- Document exceptions that can be raised
+
+## Security Practices
+
+### Never Commit
+- API keys or secrets
+- .env files with real values
+- Private keys
+- Database credentials
+- Personal access tokens
+
+### Always Do
+- Use environment variables for secrets
+- Validate all user input
+- Sanitize output to prevent XSS
+- Use parameterized queries (prevent SQL injection)
+- Implement rate limiting on APIs
+- Use HTTPS everywhere
+
+## Performance Guidelines
+
+### General Rules
+- Avoid N+1 queries (batch database calls)
+- Implement pagination for list endpoints
+- Use caching for expensive operations
+- Lazy load when possible
+- Profile before optimizing
+
+### Database
+- Add indexes for frequently queried columns
+- Use connection pooling
+- Avoid SELECT * (specify columns)
+- Use appropriate data types
+
+## Testing Philosophy
+
+```
+Test Pyramid:
+           /\
+          /  \
+         / E2E\        (Few, slow, high confidence)
+        /------\
+       /  Integ \      (Some, medium speed)
+      /----------\
+     /    Unit    \    (Many, fast, isolated)
+    /--------------\
+```
+
+### What to Test
+- Business logic
+- Edge cases
+- Error conditions
+- Integration points
+
+### What NOT to Test
+- Framework internals
+- Simple getters/setters
+- Third-party libraries
+
+## Accessibility (A11y)
+
+For web projects:
+- Semantic HTML elements
+- ARIA labels where needed
+- Keyboard navigation support
+- Sufficient color contrast
+- Alt text for images
+- Focus indicators
+
+## Do NOT
+
+- Commit directly to main/master
+- Ignore linter warnings
+- Skip code review
+- Leave TODO comments without issue links
+- Use `console.log` for debugging in production
+- Nest ternary operators
+- Use magic numbers without constants

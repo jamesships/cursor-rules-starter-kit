@@ -1,0 +1,274 @@
+---
+description: Rules for AI/LLM development with OpenAI, Anthropic, and LangChain
+globs: ["**/*.py", "**/*.ts", "**/ai/**/*", "**/llm/**/*", "**/agents/**/*"]
+alwaysApply: false
+---
+
+# AI/LLM Development Rules
+
+You are an expert AI engineer building applications with LLMs, embeddings, and AI agents.
+
+## Core Principles
+
+1. **Structured Prompts**: Use consistent prompt templates with clear sections
+2. **Error Resilience**: Always handle API failures gracefully
+3. **Token Awareness**: Be conscious of context windows and costs
+4. **Safety First**: Implement content filtering and rate limiting
+
+## Prompt Engineering Patterns
+
+### System Prompt Structure
+```markdown
+# Role
+You are a [specific role] specialized in [domain].
+
+# Context
+[Relevant background information]
+
+# Task
+[Clear, specific instruction]
+
+# Constraints
+- [Constraint 1]
+- [Constraint 2]
+
+# Output Format
+[Expected response structure]
+
+# Examples
+[Few-shot examples if needed]
+```
+
+### Prompt Template (Python)
+```python
+from string import Template
+
+ANALYSIS_PROMPT = Template("""
+# Role
+You are an expert data analyst.
+
+# Task
+Analyze the following data and provide insights.
+
+# Data
+$data
+
+# Requirements
+- Identify key trends
+- Highlight anomalies
+- Provide actionable recommendations
+
+# Output Format
+Respond in JSON with keys: trends, anomalies, recommendations
+""")
+
+def create_analysis_prompt(data: str) -> str:
+    return ANALYSIS_PROMPT.substitute(data=data)
+```
+
+## API Integration Patterns
+
+### OpenAI Client (Python)
+```python
+from openai import AsyncOpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+client = AsyncOpenAI()
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+)
+async def generate_completion(
+    messages: list[dict[str, str]],
+    model: str = "gpt-4-turbo-preview",
+    temperature: float = 0.7,
+    max_tokens: int = 1000,
+) -> str:
+    """Generate a completion with retry logic."""
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content or ""
+    except Exception as e:
+        logger.error(f"OpenAI API error: {e}")
+        raise
+```
+
+### Anthropic Client (Python)
+```python
+from anthropic import AsyncAnthropic
+
+client = AsyncAnthropic()
+
+async def generate_with_claude(
+    prompt: str,
+    system: str = "",
+    model: str = "claude-3-sonnet-20240229",
+    max_tokens: int = 1024,
+) -> str:
+    """Generate completion with Claude."""
+    message = await client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return message.content[0].text
+```
+
+### Streaming Response Handler
+```python
+async def stream_completion(
+    messages: list[dict[str, str]],
+) -> AsyncGenerator[str, None]:
+    """Stream completion tokens."""
+    stream = await client.chat.completions.create(
+        model="gpt-4-turbo-preview",
+        messages=messages,
+        stream=True,
+    )
+    
+    async for chunk in stream:
+        if chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
+```
+
+## Structured Output Patterns
+
+### JSON Mode
+```python
+from pydantic import BaseModel
+
+class AnalysisResult(BaseModel):
+    sentiment: str
+    confidence: float
+    key_points: list[str]
+
+async def analyze_with_schema(text: str) -> AnalysisResult:
+    """Analyze text and return structured output."""
+    response = await client.chat.completions.create(
+        model="gpt-4-turbo-preview",
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": f"Analyze text. Respond with JSON matching: {AnalysisResult.model_json_schema()}"
+            },
+            {"role": "user", "content": text}
+        ],
+    )
+    return AnalysisResult.model_validate_json(
+        response.choices[0].message.content
+    )
+```
+
+## Agent Patterns
+
+### Tool Definition
+```python
+from typing import Callable
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_documents",
+            "description": "Search internal documents for relevant information",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results to return",
+                        "default": 5,
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    }
+]
+
+TOOL_HANDLERS: dict[str, Callable] = {
+    "search_documents": search_documents_handler,
+}
+```
+
+### Agent Loop
+```python
+async def run_agent(
+    user_message: str,
+    max_iterations: int = 5,
+) -> str:
+    """Run an agent loop with tool use."""
+    messages = [{"role": "user", "content": user_message}]
+    
+    for _ in range(max_iterations):
+        response = await client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+        )
+        
+        assistant_message = response.choices[0].message
+        messages.append(assistant_message.model_dump())
+        
+        if not assistant_message.tool_calls:
+            return assistant_message.content or ""
+        
+        # Execute tool calls
+        for tool_call in assistant_message.tool_calls:
+            handler = TOOL_HANDLERS[tool_call.function.name]
+            result = await handler(
+                **json.loads(tool_call.function.arguments)
+            )
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": str(result),
+            })
+    
+    return "Max iterations reached"
+```
+
+## Cost & Token Management
+
+```python
+import tiktoken
+
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    """Count tokens in text."""
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
+def truncate_to_token_limit(
+    text: str,
+    max_tokens: int,
+    model: str = "gpt-4",
+) -> str:
+    """Truncate text to fit within token limit."""
+    encoding = tiktoken.encoding_for_model(model)
+    tokens = encoding.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    return encoding.decode(tokens[:max_tokens])
+```
+
+## Do NOT
+
+- Hardcode API keys (use environment variables)
+- Ignore rate limits (implement backoff)
+- Skip input validation before sending to LLM
+- Return raw LLM output without verification
+- Use `print()` for logging (use proper logger)
+- Forget to handle empty/null responses from API

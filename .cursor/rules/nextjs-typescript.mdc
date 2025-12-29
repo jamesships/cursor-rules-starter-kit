@@ -1,0 +1,145 @@
+---
+description: Rules for Next.js 14+ with TypeScript and Tailwind CSS development
+globs: ["**/*.tsx", "**/*.ts", "app/**/*", "components/**/*"]
+alwaysApply: false
+---
+
+# Next.js + TypeScript + Tailwind Development Rules
+
+You are an expert Next.js developer working with TypeScript and Tailwind CSS.
+
+## Core Principles
+
+1. **Server Components First**: Default to React Server Components. Only use 'use client' when you need:
+   - Event handlers (onClick, onChange, etc.)
+   - Browser APIs (localStorage, window, etc.)
+   - React hooks (useState, useEffect, etc.)
+   - Third-party client libraries
+
+2. **TypeScript Strictness**: Always use strict TypeScript:
+   - Explicit return types for functions
+   - No `any` types - use `unknown` with type guards instead
+   - Prefer interfaces over types for object shapes
+   - Use `as const` for literal types
+
+3. **File Organization**:
+   ```
+   app/
+   ├── (routes)/        # Route groups
+   ├── api/             # API routes
+   ├── globals.css      # Global styles
+   └── layout.tsx       # Root layout
+   components/
+   ├── ui/              # Reusable UI components
+   └── features/        # Feature-specific components
+   lib/
+   ├── utils.ts         # Utility functions
+   └── types.ts         # Shared types
+   ```
+
+## Code Patterns
+
+### Component Structure
+```tsx
+// Prefer this pattern for components
+interface ComponentProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+export function Component({ title, children }: ComponentProps): JSX.Element {
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold">{title}</h2>
+      {children}
+    </div>
+  );
+}
+```
+
+### Server Actions
+```tsx
+// app/actions.ts
+'use server'
+
+import { revalidatePath } from 'next/cache';
+
+export async function createItem(formData: FormData): Promise<{ success: boolean }> {
+  // Validate input
+  const title = formData.get('title');
+  if (typeof title !== 'string' || !title.trim()) {
+    throw new Error('Title is required');
+  }
+  
+  // Perform action
+  await db.item.create({ data: { title } });
+  
+  // Revalidate cache
+  revalidatePath('/items');
+  
+  return { success: true };
+}
+```
+
+### Data Fetching
+```tsx
+// Server Component with data fetching
+async function ItemList(): Promise<JSX.Element> {
+  const items = await fetch('https://api.example.com/items', {
+    next: { revalidate: 3600 } // Cache for 1 hour
+  }).then(res => res.json());
+
+  return (
+    <ul>
+      {items.map((item: Item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Tailwind Conventions
+
+1. **Responsive Design**: Mobile-first approach
+   ```tsx
+   className="text-sm md:text-base lg:text-lg"
+   ```
+
+2. **Component Variants**: Use class variance authority (CVA) for variants
+   ```tsx
+   import { cva } from 'class-variance-authority';
+   
+   const button = cva('rounded font-medium', {
+     variants: {
+       intent: {
+         primary: 'bg-blue-500 text-white',
+         secondary: 'bg-gray-200 text-gray-800',
+       },
+       size: {
+         sm: 'px-2 py-1 text-sm',
+         md: 'px-4 py-2',
+       },
+     },
+     defaultVariants: {
+       intent: 'primary',
+       size: 'md',
+     },
+   });
+   ```
+
+3. **Spacing**: Use consistent spacing scale (4, 8, 12, 16, 24, 32, 48, 64)
+
+## Error Handling
+
+1. **Error Boundaries**: Create error.tsx for route segments
+2. **Loading States**: Create loading.tsx with skeleton UI
+3. **Not Found**: Create not-found.tsx for 404 handling
+
+## Do NOT
+
+- Use `getServerSideProps` or `getStaticProps` (use App Router patterns)
+- Import from 'next/router' (use 'next/navigation')
+- Create API routes when Server Actions suffice
+- Use inline styles when Tailwind classes work
+- Forget to add 'use client' when using hooks
